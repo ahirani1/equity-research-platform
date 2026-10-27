@@ -1,7 +1,7 @@
 """
-Data layer: downloads annual financial statements and company info from Yahoo
-Finance (via yfinance), tidies them into a consistent shape, and caches them as
-CSV so we don't re-download every run.
+Downloads annual financial statements and company info from Yahoo Finance
+(via yfinance), tidies them into a consistent shape, and caches them as CSV
+so repeat runs don't hit the network.
 
 Output shape for each statement: one row per fiscal year (oldest -> newest),
 one column per line item, e.g.

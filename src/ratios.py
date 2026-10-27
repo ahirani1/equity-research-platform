@@ -1,9 +1,9 @@
 """
-Ratio analysis: turns the three statements into the metrics an analyst looks at
-first - growth, profitability, returns, leverage and cash quality - plus simple
-trend flags.
+Turns the three financial statements into the core metrics for a first look at
+a company - growth, profitability, returns, leverage and cash quality - plus
+plain-English warning flags.
 
-Design choices worth being able to explain:
+Methodology notes:
 - Ratios over a zero or negative base (e.g. ROE when equity is negative) are
   left blank rather than shown, because the number has no meaning.
 - Invested capital is defined as equity + total debt - cash, so the definition
