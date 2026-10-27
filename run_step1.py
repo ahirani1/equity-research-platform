@@ -29,7 +29,7 @@ for ticker in COMPANIES:
     table = ratios.T.astype(object)
     for row in table.index:
         fmt = "{:.1f}x" if row in MULTIPLES else "{:.1%}"
-        table.loc[row] = [("" if pd.isna(x) else fmt.format(x)) for x in table.loc[row]]
+        table.loc[row] = [("–" if pd.isna(x) else fmt.format(x)) for x in table.loc[row]]
     print(table)
 
     for f in trend_flags(ratios) or ["No warning flags."]:
