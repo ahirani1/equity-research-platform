@@ -36,12 +36,21 @@ COMPANIES = {
             "target_ebit_margin": 0.19,    # midpoint of 18-20% 2028 target
             "revenue_growth": [0.10, 0.10, 0.10, 0.06, 0.04],  # implied by 2028 targets
             "tax_rate": 0.25,              # UK rate; current low rate reflects past losses
-            "capex_pct": 0.05,             # at least D&A
+            "capex_pct": 0.0255,           # = D&A; counts new store leases as investment
             },
     },
     "TSCO.L": {  # Tesco - grocery retail
         "peers": ["SBRY.L", "AD.AS", "CA.PA"],
-        "dcf": {},
+                   "dcf": {
+               # Source: Tesco Preliminary Results 2025/26 (year to 28 Feb 2026)
+               "base_revenue": 72_464e6,      # 52-week revenue inc. fuel, exc. VAT
+               "base_ebit_margin": 0.0435,    # adjusted operating profit / revenue
+               "target_ebit_margin": 0.0435,  # company aims to maintain margins
+               "revenue_growth": [0.03, 0.03, 0.03, 0.025, 0.025],
+               "tax_rate": 0.268,             # adjusted effective tax rate
+               "capex_pct": 0.025,            # = D&A; counts new store leases as investment
+               "cash": 4_517e6,               # so net debt matches company's £10,563m
+               },
     },
     "ASML.AS": {  # ASML - semiconductor lithography equipment
         "peers": ["AMAT", "LRCX", "KLAC"],
