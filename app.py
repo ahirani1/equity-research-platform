@@ -257,16 +257,19 @@ with tabs[2]:
         k = f"{ticker}_{st.session_state[reset_key]}"
         c1, c2, c3 = st.columns(3)
         # Sliders work in percentage points so they read naturally (e.g. 10.5%)
-        # Sliders work in percentage points so they read naturally (e.g. 10.5%)
         growth_shift = c1.slider(
             "Revenue growth shift (every year)", -5.0, 5.0, 0.0, 0.5,
             format="%+.1f%%", key=f"{k}_growth",
             help="Added to each forecast year's growth rate") / 100
-        target_margin = c1.slider(
+        margin_in = c1.slider(
             "Final-year EBIT margin", 0.0,
             round(max(60.0, b.target_ebit_margin * 100 + 10), 1),
-            round(b.target_ebit_margin * 100, 1), 0.5, format="%.1f%%",
+            round(b.target_ebit_margin * 100, 2), 0.05, format="%.2f%%",
             key=f"{k}_margin") / 100
+        # Keep the exact base-case margin unless the slider has been moved,
+        # so slider rounding can't change the base-case value
+        target_margin = (b.target_ebit_margin
+                         if abs(margin_in - b.target_ebit_margin) < 1e-4 else margin_in)
         wacc_in = c2.slider("WACC", 4.0, 15.0, round(base_wacc * 100, 2), 0.25,
                             format="%.2f%%", key=f"{k}_wacc") / 100
         tg = c2.slider("Terminal growth", 0.0, 4.0, round(b.terminal_growth * 100, 2),

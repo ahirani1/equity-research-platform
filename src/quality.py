@@ -123,6 +123,7 @@ def adjustments_table(co: dict, overrides: dict, peer_adjustments: dict | None,
         return pd.DataFrame()
     labels = {
         "base_revenue": "Base-year revenue", "base_ebit_margin": "Base-year EBIT margin",
+        "year1_ebit_margin": "Year-1 EBIT margin",
         "target_ebit_margin": "Final-year EBIT margin", "tax_rate": "Tax rate",
         "capex_pct": "Capex (% of revenue)", "target_capex_pct": "Final-year capex",
         "cash": "Cash", "revenue_growth": "Revenue growth",

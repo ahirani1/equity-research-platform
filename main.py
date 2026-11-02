@@ -156,7 +156,7 @@ def show_dcf(co: dict, overrides: dict) -> None:
         return
 
     print("\n--- DCF inputs ---")
-    pct = {"revenue_growth", "base_ebit_margin", "target_ebit_margin", "tax_rate",
+    pct = {"revenue_growth", "base_ebit_margin", "year1_ebit_margin", "target_ebit_margin", "tax_rate",
            "da_pct", "capex_pct", "target_capex_pct", "nwc_pct", "terminal_growth", "risk_free", "erp",
            "cost_of_debt"}
     for name, source in sources.items():

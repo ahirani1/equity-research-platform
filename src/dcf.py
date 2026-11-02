@@ -20,6 +20,10 @@ Methodology notes:
   default). Margin and capex move in a straight line from their starting
   values to their targets over the forecast, and the final year's free cash
   flow drives the terminal value.
+- If a company has guided to a year-one margin well above the base year
+  (Rolls-Royce and ASML in 2026), year1_ebit_margin sets it directly and the
+  margin then moves in a straight line to the target. The base-year margin
+  stays as reported, so comps and the Z-score still use actual figures.
 """
 
 from dataclasses import dataclass, replace
@@ -52,6 +56,7 @@ class DCFInputs:
     price: float
     wacc_override: float | None = None
     target_capex_pct: float | None = None  # capex % reached in the final year
+    year1_ebit_margin: float | None = None  # margin in forecast year 1, if guidance gives one
 
 
 def _recent_mean(s: pd.Series, n: int = 3) -> float:
@@ -135,6 +140,7 @@ def build_inputs(co: dict, overrides: dict, market: dict,
     }
     defaults["target_ebit_margin"] = (defaults["base_ebit_margin"][0], "held flat")
     defaults["target_capex_pct"] = (None, "held flat")
+    defaults["year1_ebit_margin"] = (None, "straight line from base year")
 
     values, sources = {}, {}
     for name, (value, source) in defaults.items():
@@ -172,7 +178,11 @@ def value(x: DCFInputs) -> dict:
     rows, prev_rev = [], x.base_revenue
     for t, g in enumerate(x.revenue_growth, start=1):
         rev = prev_rev * (1 + g)
-        margin = x.base_ebit_margin + (x.target_ebit_margin - x.base_ebit_margin) * t / n
+        if x.year1_ebit_margin is None:
+            margin = x.base_ebit_margin + (x.target_ebit_margin - x.base_ebit_margin) * t / n
+        else:
+            step = (x.target_ebit_margin - x.year1_ebit_margin) / max(n - 1, 1)
+            margin = x.year1_ebit_margin + step * (t - 1)
         ebit = rev * margin
         nopat = ebit * (1 - x.tax_rate)
         capex_pct = x.capex_pct if x.target_capex_pct is None else \

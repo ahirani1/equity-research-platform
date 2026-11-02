@@ -51,8 +51,9 @@ COMPANIES = {
             # Source: Rolls-Royce FY2025 results, 26 Feb 2026
             "base_revenue": 20_059e6,      # underlying revenue
             "base_ebit_margin": 0.173,     # underlying operating margin
-            "target_ebit_margin": 0.19,    # midpoint of 18-20% 2028 target
-            "revenue_growth": [0.10, 0.10, 0.10, 0.06, 0.04],  # implied by 2028 targets
+            "revenue_growth": [0.14, 0.09, 0.08, 0.06, 0.04], # 2026 from raised guidance (H1 results, Jul 2026)
+            "year1_ebit_margin": 0.212,    # H1 2026 margin 22.5%; FY26 guidance
+            "target_ebit_margin": 0.22,    # above the 18–20% 2028 target, already passed        
             "tax_rate": 0.25,              # UK rate; current low rate reflects past losses
             "capex_pct": 0.05,             # at least D&A
             },
@@ -86,8 +87,9 @@ COMPANIES = {
                "dcf": {
                # Source: ASML Annual Report 2025; 2030 targets from Nov 2024 Investor Day
                "base_ebit_margin": 0.346,     # income from operations / sales
-               "target_ebit_margin": 0.40,    # 2030: 58% gross margin less ~18% opex
-               "revenue_growth": [0.117, 0.0925, 0.0925, 0.0925, 0.0925],  # €36.5bn 2026, €52bn 2030
+               "revenue_growth": [0.36, 0.10, 0.08, 0.06, 0.05], # 2026 from raised guidance (Q3 results, Oct 2026)
+               "year1_ebit_margin": 0.408,    # FY26 guidance €44–45bn, gross margin ~56%
+               "target_ebit_margin": 0.42,    # 2030
                "tax_rate": 0.177,             # 2025 effective tax rate
                "capex_pct": 0.05,             # 2025 actual
                "target_capex_pct": 0.035,     # near steady state by 2030

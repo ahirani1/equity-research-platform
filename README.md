@@ -96,7 +96,10 @@ risk. Everything is in pounds.
 - **Margin and capex can move towards targets.** Both change in a straight
   line to a target by the final forecast year. Useful for a company like ASML,
   which is investing heavily now but won't need to forever, and for following
-  management's medium-term margin targets.
+  management's medium-term margin targets. Where a company has already guided
+  to a year-one margin well above the base year (Rolls-Royce and ASML raised
+  2026 guidance mid-year), the year-one margin can be set directly, while the
+  base year stays as reported for the comps and credit checks.
 - **Adjusted beta.** Raw betas from the data feed are Blume-adjusted
   (0.67 x raw + 0.33), since measured betas tend to drift towards 1.
 - **Reverse DCF.** When my valuation and the market disagree, I solve for
