@@ -57,6 +57,8 @@ Net debt / EBITDA             3.9x    2.6x    2.6x    2.4x
   free cash flow definition.
 - **London prices are converted from pence.** Yahoo quotes LSE shares in GBp
   while the accounts are in pounds.
+- **Adjusted beta.** Raw betas from the data feed are Blume-adjusted
+  (0.67 x raw + 0.33), since measured betas tend to drift towards 1.
 - **Reverse DCF.** When my valuation and the market disagree, I solve for
   the margin, growth, terminal growth or WACC the share price implies (one at
   a time, by bisection) and judge whether those are realistic.

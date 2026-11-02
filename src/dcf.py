@@ -54,6 +54,13 @@ def _recent_mean(s: pd.Series, n: int = 3) -> float:
     return float(s.iloc[-n:].mean()) if len(s) else float("nan")
 
 
+def _blume(raw: float | None) -> float | None:
+    """Blume-adjusted beta: 0.67 x raw + 0.33. Betas measured from past prices
+    are noisy and tend to drift towards 1 over time, so this pulls extreme
+    values part of the way back. It's the adjustment Bloomberg uses."""
+    return None if raw is None else 0.67 * raw + 0.33
+
+
 def _price_in_reporting_units(info: dict) -> float:
     """London prices on Yahoo are quoted in pence ('GBp'), but accounts are
     in pounds. Convert so price and per-share value are comparable."""
@@ -112,7 +119,7 @@ def build_inputs(co: dict, overrides: dict, market: dict,
         "terminal_growth": (terminal_g, "default 2%"),
         "risk_free": (rf, f"config ({currency})"),
         "erp": (market["equity_risk_premium"], "config"),
-        "beta": (info.get("beta"), "data feed"),
+        "beta": (_blume(info.get("beta")), "data feed, Blume-adjusted"),
         "cost_of_debt": (kd_default, "interest / avg debt" if kd_default == kd_hist
                          else "risk-free + 2%"),
         "debt": (float(debt.iloc[-1]), "latest reported"),
