@@ -24,6 +24,9 @@ numbers can't be taken at face value.
   WACC vs terminal growth and revenue growth vs margin
 - Runs a reverse DCF: for each key assumption, the value it would need to
   take to justify the current share price
+- Checks credit strength (interest cover, leverage, Altman Z-score) and
+  accounting quality (cash conversion, accruals), and lists every figure I've
+  changed from the data feed next to the original
 - Compares each company with a peer group on EV/Sales, EV/EBITDA, EV/EBIT and
   P/E, and values it at the peer median multiples
 
@@ -47,7 +50,8 @@ An interactive version of the analysis. Pick a company and move through:
 
 - **Overview**: share price against the DCF and comps values, with a chart
   of each method's range
-- **Financials**: ratio history and margin trends
+- **Financials**: ratio history, margin trends, credit strength, accounting
+  quality and my adjustments to the data feed
 - **DCF**: sliders for growth, margin, WACC, terminal growth, tax and capex
   that revalue the company live, plus the forecast, the bridge from enterprise
   value to share price, the reverse DCF and a sensitivity heatmap
@@ -98,6 +102,10 @@ risk. Everything is in pounds.
   one outlier can't dominate. Peers with a share price and accounts in
   different currencies are left out rather than mixed. The target uses the same
   underlying base year as its DCF, so the two methods are comparable.
+- **Credit and accounting checks.** Interest cover = EBIT / interest. The
+  Altman Z-score is a bankruptcy screen built on US manufacturers, so it's a
+  rough signal for other sectors. The accruals ratio (net income minus
+  operating cash flow, over average assets) flags profit running ahead of cash.
 - **Portfolio in pounds.** Euro-listed holdings are converted at the daily
   EUR/GBP rate, so their risk includes currency risk for a UK investor.
 - **No return forecasts in the optimisers.** Minimum variance and risk parity
@@ -119,6 +127,7 @@ app.py           Streamlit dashboard
 summaries/       my written view on each company
 src/data.py      data download, cleaning and caching
 src/ratios.py    ratio calculations and warning flags
+src/quality.py   credit metrics, accounting quality and adjustment log
 src/dcf.py       DCF valuation, sensitivity analysis and reverse DCF
 src/comps.py     comparable company analysis
 src/portfolio.py portfolio risk and allocation
@@ -133,7 +142,7 @@ pip install -r requirements.txt
 
 python main.py                 # all companies in config.py
 python main.py ASML.AS         # a single ticker
-python main.py --only dcf      # just the DCF (or: --only ratios, --only comps)
+python main.py --only dcf      # just the DCF (or: ratios, quality, comps)
 python main.py --only portfolio  # the model portfolio
 python main.py --refresh       # re-download the data
 ```

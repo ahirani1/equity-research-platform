@@ -3,7 +3,7 @@ Ratio analysis, DCF valuation and comparable company analysis for each company.
 
     python main.py                  # every company in config.py
     python main.py RR.L TSCO.L      # specific tickers
-    python main.py --only ratios    # one section (or: --only dcf, --only comps)
+    python main.py --only ratios    # one section (or: quality, dcf, comps)
     python main.py --only portfolio # the model portfolio analysis
     python main.py --refresh        # re-download instead of using cached data
 """
@@ -22,6 +22,7 @@ from src.dcf import _price_in_reporting_units, build_inputs, reverse_dcf, sensit
 from src.portfolio import (compare_allocations, correlation_table, covariance,
                            daily_returns, equal_weight, fetch_prices,
                            minimum_variance, risk_contributions, risk_parity)
+from src.quality import accounting_quality, adjustments_table, altman_z, credit_metrics
 from src.ratios import compute_ratios, trend_flags
 
 # yfinance triggers pandas deprecation warnings that aren't about this code
@@ -36,6 +37,49 @@ def format_table(ratios: pd.DataFrame) -> pd.DataFrame:
         fmt = "{:.1f}x" if row in MULTIPLES else "{:.1%}"
         table.loc[row] = ["–" if pd.isna(x) else fmt.format(x) for x in table.loc[row]]
     return table
+
+
+def fmt_value(v, kind: str) -> str:
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "–"
+    if kind == "revenue_growth":
+        return ", ".join(f"{g:.1%}" for g in v)
+    if kind in ("base_revenue", "cash", "money"):
+        return money(v)
+    if kind == "beta":
+        return f"{v:.2f}"
+    return f"{v:.1%}"
+
+
+def show_quality(ticker: str, co: dict, cfg: dict) -> None:
+    print("\n--- Credit metrics ---")
+    cm = credit_metrics(co).T.astype(object)
+    for row in cm.index:
+        cm.loc[row] = ["–" if pd.isna(v) else f"{v:.1f}x" for v in cm.loc[row]]
+    print(cm)
+    z = altman_z(co, cfg.get("dcf", {}))
+    if z:
+        print(f"  Altman Z-score (latest year, {z['Basis']} EBIT and sales): "
+              f"{z['Z-score']:.2f} -> {z['Zone']}")
+        for k, v in z["Components"].items():
+            print(f"    {k:<46} {v:6.2f}")
+        print("  Zones: above 2.99 safe, 1.81-2.99 grey, below 1.81 distress. "
+              "Built on US manufacturers, so a rough screen for other sectors.")
+
+    print("\n--- Accounting quality ---")
+    aq = accounting_quality(co).T.astype(object)
+    for row in aq.index:
+        aq.loc[row] = ["–" if pd.isna(v) else f"{v:.1%}" for v in aq.loc[row]]
+    print(aq)
+    print("  Accruals ratio: positive means profit ran ahead of cash that year.")
+
+    adj = adjustments_table(co, cfg.get("dcf", {}),
+                            getattr(config, "PEER_ADJUSTMENTS", {}).get(ticker), MARKET)
+    if not adj.empty:
+        print("\n--- My adjustments to the data feed ---")
+        for _, r in adj.iterrows():
+            print(f"  {r['Item']:<34} feed {fmt_value(r['Data feed'], r['Type']):>30}"
+                  f"   used {fmt_value(r['Used'], r['Type']):>30}")
 
 
 def show_ratios(co: dict) -> None:
@@ -240,7 +284,7 @@ def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Equity research tool")
     parser.add_argument("tickers", nargs="*", help="Yahoo Finance tickers")
-    parser.add_argument("--only", choices=["ratios", "dcf", "comps", "portfolio"], help="run one section")
+    parser.add_argument("--only", choices=["ratios", "quality", "dcf", "comps", "portfolio"], help="run one section")
     parser.add_argument("--refresh", action="store_true", help="re-download data")
     args = parser.parse_args()
 
@@ -260,6 +304,8 @@ def main() -> None:
         cfg = COMPANIES.get(ticker, {})
         if args.only in (None, "ratios"):
             show_ratios(co)
+        if args.only in (None, "quality"):
+            show_quality(ticker, co, cfg)
         if args.only in (None, "dcf"):
             show_dcf(co, cfg.get("dcf", {}))
         if args.only in (None, "comps"):

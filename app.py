@@ -28,6 +28,7 @@ from src.portfolio import (compare_allocations, correlation_table, covariance,
                            daily_returns, equal_weight, fetch_prices,
                            minimum_variance, portfolio_returns, risk_contributions,
                            risk_parity)
+from src.quality import accounting_quality, adjustments_table, altman_z, credit_metrics
 from src.ratios import compute_ratios, trend_flags
 
 # yfinance triggers pandas deprecation warnings that aren't about this code
@@ -451,6 +452,55 @@ with tabs[1]:
                       margin=dict(t=30),
                       title="Margins", legend=dict(orientation="h"))
     st.plotly_chart(fig, width="stretch")
+
+    st.subheader("Credit strength")
+    cm = credit_metrics(co).T.astype(object)
+    for row in cm.index:
+        cm.loc[row] = ["–" if pd.isna(v) else f"{v:.1f}x" for v in cm.loc[row]]
+    cm.columns = [str(c) for c in cm.columns]
+    st.dataframe(cm, width="stretch")
+    z = altman_z(co, overrides)
+    if z:
+        zc1, zc2 = st.columns([1, 2])
+        zc1.metric(f"Altman Z-score (latest year, {z['Basis']})", f"{z['Z-score']:.2f}", z["Zone"],
+                   delta_color="off")
+        zc2.dataframe(pd.DataFrame({"Contribution": {k: f"{v:.2f}" for k, v in
+                                                     z["Components"].items()}}),
+                      width="stretch")
+        st.caption("Interest cover below about 3x starts to look stretched. "
+                   "Z-score zones: above 2.99 safe, 1.81–2.99 grey, below 1.81 "
+                   "distress. It was built on US manufacturers, so treat it as a "
+                   "rough screen for other sectors.")
+
+    st.subheader("Accounting quality")
+    aq = accounting_quality(co).T.astype(object)
+    for row in aq.index:
+        aq.loc[row] = ["–" if pd.isna(v) else f"{v:.1%}" for v in aq.loc[row]]
+    aq.columns = [str(c) for c in aq.columns]
+    st.dataframe(aq, width="stretch")
+    st.caption("Cash conversion below 100% for several years, or a positive "
+               "accruals ratio, means reported profit is running ahead of cash.")
+
+    adj = adjustments_table(co, overrides, adjustments.get(ticker), MARKET)
+    if not adj.empty:
+        st.subheader("My adjustments to the data feed")
+        def _f(v, kind):
+            if v is None or (isinstance(v, float) and np.isnan(v)):
+                return "–"
+            if kind == "revenue_growth":
+                return ", ".join(pct(g) for g in v)
+            if kind in ("base_revenue", "cash", "money"):
+                return millions(v, sym)
+            if kind == "beta":
+                return f"{v:.2f}"
+            return pct(v)
+        st.dataframe(pd.DataFrame({
+            "Item": adj["Item"],
+            "Data feed": [_f(v, k) for v, k in zip(adj["Data feed"], adj["Type"])],
+            "Used": [_f(v, k) for v, k in zip(adj["Used"], adj["Type"])],
+        }), hide_index=True, width="stretch")
+        st.caption("Reasons for each change are recorded in config.py and the "
+                   "methodology notes.")
 
 # -------------------------------------------------------- comparables tab
 with tabs[3]:
