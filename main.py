@@ -49,11 +49,13 @@ def show_dcf(co: dict, overrides: dict) -> None:
 
     print("\n--- DCF inputs ---")
     pct = {"revenue_growth", "base_ebit_margin", "target_ebit_margin", "tax_rate",
-           "da_pct", "capex_pct", "nwc_pct", "terminal_growth", "risk_free", "erp",
+           "da_pct", "capex_pct", "target_capex_pct", "nwc_pct", "terminal_growth", "risk_free", "erp",
            "cost_of_debt"}
     for name, source in sources.items():
         v = getattr(x, name)
-        if name == "revenue_growth":
+        if v is None:
+            shown = "-"
+        elif name == "revenue_growth":
             shown = ", ".join(f"{g:.1%}" for g in v)
         elif name in pct:
             shown = f"{v:.1%}"
@@ -91,9 +93,10 @@ def show_dcf(co: dict, overrides: dict) -> None:
     if tv_share > 0.75:
         print("  Note: most of the value sits in the terminal value, so the result "
               "is very sensitive to WACC and terminal growth.")
-    if x.capex_pct < x.da_pct:
+    final_capex = x.capex_pct if x.target_capex_pct is None else x.target_capex_pct
+    if final_capex < x.da_pct:
         print("  Note: capex is below D&A, so the asset base shrinks in the terminal "
-              "year while revenue keeps growing. Consider setting capex_pct >= da_pct.")
+              "year while revenue keeps growing. Consider capex (or target_capex_pct) >= da_pct.")
 
     w = result["WACC"]
     t = x.terminal_growth

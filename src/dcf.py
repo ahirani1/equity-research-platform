@@ -16,6 +16,10 @@ Methodology notes:
 - Under IFRS 16, lease costs sit below EBIT (as depreciation and interest),
   so lease liabilities are treated as debt. Yahoo's "Total Debt" includes them.
 - Cash flows are discounted from the end of each year (no mid-year adjustment).
+- The forecast length is set by the number of growth rates given (5 by
+  default). Margin and capex move in a straight line from their starting
+  values to their targets over the forecast, and the final year's free cash
+  flow drives the terminal value.
 """
 
 from dataclasses import dataclass, replace
@@ -47,6 +51,7 @@ class DCFInputs:
     market_cap: float
     price: float
     wacc_override: float | None = None
+    target_capex_pct: float | None = None  # capex % reached in the final year
 
 
 def _recent_mean(s: pd.Series, n: int = 3) -> float:
@@ -129,6 +134,7 @@ def build_inputs(co: dict, overrides: dict, market: dict,
         "price": (_price_in_reporting_units(info), "data feed"),
     }
     defaults["target_ebit_margin"] = (defaults["base_ebit_margin"][0], "held flat")
+    defaults["target_capex_pct"] = (None, "held flat")
 
     values, sources = {}, {}
     for name, (value, source) in defaults.items():
@@ -169,7 +175,9 @@ def value(x: DCFInputs) -> dict:
         margin = x.base_ebit_margin + (x.target_ebit_margin - x.base_ebit_margin) * t / n
         ebit = rev * margin
         nopat = ebit * (1 - x.tax_rate)
-        da, capex = rev * x.da_pct, rev * x.capex_pct
+        capex_pct = x.capex_pct if x.target_capex_pct is None else \
+            x.capex_pct + (x.target_capex_pct - x.capex_pct) * t / n
+        da, capex = rev * x.da_pct, rev * capex_pct
         d_nwc = x.nwc_pct * (rev - prev_rev)
         fcf = nopat + da - capex - d_nwc
         disc = 1 / (1 + r) ** t
