@@ -85,3 +85,33 @@ COMPANIES = {
                },
     },
 }
+
+# Model portfolio: a core of three funds plus my three researched stocks as
+# satellite positions. Holdings are fixed; weights can be changed in the
+# dashboard. Stock weights are tilted by my valuation work: Tesco looks
+# roughly fairly valued; Rolls-Royce and ASML look expensive on both the DCF
+# and comps, so they get smaller positions.
+PORTFOLIO = {
+    "start": "2020-01-01",      # first date of price history used
+    "benchmark": "VWRP.L",      # market proxy for beta
+    # Risk-free rate for the Sharpe ratio: the average over the period,
+    # not today's rate. Source: , date:
+    "risk_free": None,
+    "weights": {
+        "VWRP.L": 0.50,   # Vanguard FTSE All-World (accumulating)
+        "IGLT.L": 0.20,   # iShares Core UK Gilts
+        "SGLN.L": 0.10,   # iShares Physical Gold
+        "TSCO.L": 0.10,
+        "RR.L": 0.05,
+        "ASML.AS": 0.05,
+    },
+    # Funds aren't valued with a DCF; fill these in from each fund's factsheet.
+    "funds": {
+        "VWRP.L": {"name": "Vanguard FTSE All-World", "role": "Core: global shares",
+                   "ocf": None},
+        "IGLT.L": {"name": "iShares Core UK Gilts", "role": "Core: stability and income",
+                   "ocf": None, "yield": None, "duration": None},
+        "SGLN.L": {"name": "iShares Physical Gold", "role": "Core: diversifier",
+                   "ocf": None},
+    },
+}

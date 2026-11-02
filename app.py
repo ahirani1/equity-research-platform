@@ -8,6 +8,7 @@ the valuation summary, the ratio history, the DCF (with live assumption
 sliders), the comparable company analysis, and my written view.
 """
 
+import warnings
 from dataclasses import replace
 from pathlib import Path
 
@@ -17,13 +18,20 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import config
-from config import COMPANIES, MARKET
+from config import COMPANIES, MARKET, PORTFOLIO
 from src.comps import (company_metrics, figures_table, implied_value, peer_table,
                        warnings)
 from src.data import fetch_company
 from src.dcf import (_price_in_reporting_units, build_inputs, reverse_dcf,
                      sensitivity, value, wacc)
+from src.portfolio import (compare_allocations, correlation_table, covariance,
+                           daily_returns, equal_weight, fetch_prices,
+                           minimum_variance, portfolio_returns, risk_contributions,
+                           risk_parity)
 from src.ratios import compute_ratios, trend_flags
+
+# yfinance triggers pandas deprecation warnings that aren't about this code
+warnings.filterwarnings("ignore", module="yfinance")
 
 SYMBOL = {"GBP": "£", "EUR": "€", "USD": "$"}
 SUMMARY_DIR = Path(__file__).parent / "summaries"
@@ -49,6 +57,134 @@ def millions(v: float, sym: str) -> str:
 
 # ---------------------------------------------------------------- sidebar
 st.sidebar.title("Equity Research Platform")
+page = st.sidebar.radio("View", ["Company research", "Model portfolio"])
+
+
+@st.cache_data(show_spinner="Loading price history...")
+def load_prices(tickers: tuple, start: str) -> pd.DataFrame:
+    return fetch_prices(list(tickers), start)
+
+
+@st.cache_data(show_spinner=False)
+def base_case_upside(tk: str) -> tuple:
+    """DCF and comps upside for a researched company, at my base case."""
+    co_ = load(tk)
+    cfg_ = COMPANIES[tk]
+    adj = getattr(config, "PEER_ADJUSTMENTS", {})
+    px = _price_in_reporting_units(co_["info"])
+    try:
+        dcf_up = value(build_inputs(co_, cfg_.get("dcf", {}), MARKET)[0])["Upside"]
+    except ValueError:
+        dcf_up = np.nan
+    tm = company_metrics(co_, cfg_.get("dcf", {}), adj.get(tk))
+    pm = {p: company_metrics(load(p), adjustments=adj.get(p)) for p in cfg_.get("peers", [])}
+    imp = implied_value(tm, peer_table(tk, tm, pm).loc["Peer median"], px)
+    return dcf_up, (imp["Value per share"].median() / px - 1) if not imp.empty else np.nan
+
+
+def portfolio_page() -> None:
+    st.title("Model portfolio")
+    st.caption("A core of three funds plus my three researched stocks as "
+               "satellite positions. Holdings are fixed; change the weights below "
+               "to see the effect. Everything is measured in pounds.")
+    base_w = pd.Series(PORTFOLIO["weights"], dtype=float)
+    funds = PORTFOLIO.get("funds", {})
+    prices = load_prices(tuple(base_w.index), PORTFOLIO["start"])
+    returns = daily_returns(prices)
+    cov = covariance(returns)
+    rf = PORTFOLIO.get("risk_free")
+    rf_note = "set in config"
+    if rf is None:
+        rf, rf_note = MARKET["risk_free"]["GBP"], "today's gilt yield; the period average would be fairer"
+
+    st.subheader("Holdings")
+    rows = []
+    for tk, w in base_w.items():
+        if tk in funds:
+            f = funds[tk]
+            parts = []
+            if f.get("ocf") is not None:
+                parts.append(f"Ongoing charge {f['ocf']:.2%}")
+            if f.get("yield") is not None:
+                parts.append(f"Yield {f['yield']:.2%}")
+            if f.get("duration") is not None:
+                parts.append(f"Duration {f['duration']:.1f} yrs")
+            detail = ", ".join(parts)
+            rows.append({"Ticker": tk, "Holding": f["name"], "Role": f["role"],
+                         "Weight %": round(w * 100, 1), "Valuation view": detail or "–"})
+        else:
+            dcf_up, comps_up = base_case_upside(tk)
+            rows.append({"Ticker": tk, "Holding": load(tk)["info"].get("longName") or tk,
+                         "Role": "Satellite: researched stock", "Weight %": round(w * 100, 1),
+                         "Valuation view": f"DCF {dcf_up:+.0%}, comps {comps_up:+.0%} vs price"})
+    edited = st.data_editor(pd.DataFrame(rows), hide_index=True, width="stretch",
+                            disabled=["Ticker", "Holding", "Role", "Valuation view"],
+                            key="portfolio_weights")
+    w = pd.Series(edited["Weight %"].values, index=edited["Ticker"].values, dtype=float)
+    if w.sum() <= 0:
+        st.error("Weights must add up to more than zero.")
+        return
+    if abs(w.sum() - 100) > 0.05:
+        st.warning(f"Weights add up to {w.sum():.1f}%; they've been scaled to 100%.")
+    w = w / w.sum()
+
+    allocations = {"My weights": w, "Equal weight": equal_weight(list(w.index)),
+                   "Minimum variance": minimum_variance(cov), "Risk parity": risk_parity(cov)}
+
+    st.subheader("Allocation methods compared")
+    st.caption(f"{returns.index[0]:%d %b %Y} to {returns.index[-1]:%d %b %Y}. "
+               "Minimum variance and risk parity use only volatility and correlation, "
+               "not return forecasts, which are too unreliable to optimise on. "
+               f"Risk-free rate {rf:.2%} ({rf_note}).")
+    res = compare_allocations(returns, allocations, rf, PORTFOLIO["benchmark"])
+    wt = pd.DataFrame(allocations).map("{:.1%}".format)
+    res_shown = res.copy().astype(object)
+    for row in res.index:
+        f_ = "{:.2f}" if row in ("Sharpe ratio", "Beta vs global equity") else "{:.1%}"
+        res_shown.loc[row] = [f_.format(v) for v in res.loc[row]]
+    st.markdown("**Weights**")
+    st.dataframe(wt, width="stretch")
+    st.markdown("**Results**")
+    st.dataframe(res_shown, width="stretch")
+
+    growth = go.Figure()
+    for name, aw in allocations.items():
+        v = 10_000 * (1 + portfolio_returns(returns, aw)).cumprod()
+        growth.add_trace(go.Scatter(x=v.index, y=v, mode="lines", name=name))
+    growth.update_layout(title="Growth of £10,000", yaxis_tickprefix="£",
+                         height=380, margin=dict(t=40), legend=dict(orientation="h"))
+    st.plotly_chart(growth, width="stretch")
+    st.caption("Past performance over one period; it shows how the mixes behaved, "
+               "not what they'll return.")
+
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Correlation")
+        corr = correlation_table(returns)
+        heat = go.Figure(go.Heatmap(z=corr.values, x=list(corr.columns), y=list(corr.index),
+                                    text=corr.round(2).values, texttemplate="%{text}",
+                                    colorscale="RdBu", zmin=-1, zmax=1, reversescale=True))
+        heat.update_layout(height=420, margin=dict(t=20), yaxis=dict(autorange="reversed"))
+        st.plotly_chart(heat, width="stretch")
+        st.caption("1 = always move together, 0 = unrelated, negative = tend to move "
+                   "in opposite directions. Low correlations are what make "
+                   "diversification work.")
+    with right:
+        st.subheader("Share of money vs share of risk")
+        rc = risk_contributions(w, cov)
+        bars = go.Figure([go.Bar(name="Share of money", x=list(w.index), y=w.values),
+                          go.Bar(name="Share of risk", x=list(w.index), y=rc.values)])
+        bars.update_layout(barmode="group", yaxis_tickformat=".0%", height=420,
+                           margin=dict(t=20), legend=dict(orientation="h"))
+        st.plotly_chart(bars, width="stretch")
+        st.caption("A holding whose risk share is bigger than its money share "
+                   "drives more of the portfolio's swings than its size suggests.")
+
+
+if page == "Model portfolio":
+    portfolio_page()
+    st.stop()
+
 names = {t: (load(t)["info"].get("longName") or t) for t in COMPANIES}
 ticker = st.sidebar.selectbox("Company", list(COMPANIES), format_func=lambda t: names[t])
 cfg = COMPANIES[ticker]

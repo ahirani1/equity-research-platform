@@ -55,6 +55,13 @@ An interactive version of the analysis. Pick a company and move through:
   values
 - **My view**: my written conclusion for each company (`summaries/<ticker>.md`)
 
+A second view, **Model portfolio**, combines a core of three funds (global
+shares, UK gilts, gold) with my three researched stocks as satellite
+positions. It compares my weights, tilted by the valuation work, against equal
+weight, minimum variance and risk parity on return, volatility, Sharpe ratio,
+maximum drawdown and beta, and shows correlations and each holding's share of
+risk. Everything is in pounds.
+
 ## Methodology
 
 - **Non-financial companies only.** For banks and insurers, debt is part of
@@ -91,6 +98,13 @@ An interactive version of the analysis. Pick a company and move through:
   one outlier can't dominate. Peers with a share price and accounts in
   different currencies are left out rather than mixed. The target uses the same
   underlying base year as its DCF, so the two methods are comparable.
+- **Portfolio in pounds.** Euro-listed holdings are converted at the daily
+  EUR/GBP rate, so their risk includes currency risk for a UK investor.
+- **No return forecasts in the optimisers.** Minimum variance and risk parity
+  use only volatility and correlation, because expected returns estimated from
+  past prices are too noisy and give extreme, unstable weights.
+- **Funds aren't valued with a DCF.** A fund is worth its holdings, so each is
+  assessed on its role, ongoing charge and (for gilts) yield and duration.
 - **Reported vs normalised profit.** Free data sources don't always strip out
   one-off items. Rolls-Royce's reported 2025 EBITDA margin is inflated by
   items its own "underlying" figures exclude, so headline numbers need
@@ -107,6 +121,7 @@ src/data.py      data download, cleaning and caching
 src/ratios.py    ratio calculations and warning flags
 src/dcf.py       DCF valuation, sensitivity analysis and reverse DCF
 src/comps.py     comparable company analysis
+src/portfolio.py portfolio risk and allocation
 ```
 
 ## Running it
@@ -119,6 +134,7 @@ pip install -r requirements.txt
 python main.py                 # all companies in config.py
 python main.py ASML.AS         # a single ticker
 python main.py --only dcf      # just the DCF (or: --only ratios, --only comps)
+python main.py --only portfolio  # the model portfolio
 python main.py --refresh       # re-download the data
 ```
 

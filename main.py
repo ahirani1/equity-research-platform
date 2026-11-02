@@ -4,20 +4,28 @@ Ratio analysis, DCF valuation and comparable company analysis for each company.
     python main.py                  # every company in config.py
     python main.py RR.L TSCO.L      # specific tickers
     python main.py --only ratios    # one section (or: --only dcf, --only comps)
+    python main.py --only portfolio # the model portfolio analysis
     python main.py --refresh        # re-download instead of using cached data
 """
 
 import argparse
+import warnings
 
 import numpy as np
 import pandas as pd
 
 import config
-from config import COMPANIES, MARKET
+from config import COMPANIES, MARKET, PORTFOLIO
 from src.comps import company_metrics, figures_table, implied_value, peer_table, warnings
 from src.data import fetch_company
 from src.dcf import _price_in_reporting_units, build_inputs, reverse_dcf, sensitivity, value, wacc
+from src.portfolio import (compare_allocations, correlation_table, covariance,
+                           daily_returns, equal_weight, fetch_prices,
+                           minimum_variance, risk_contributions, risk_parity)
 from src.ratios import compute_ratios, trend_flags
+
+# yfinance triggers pandas deprecation warnings that aren't about this code
+warnings.filterwarnings("ignore", module="yfinance")
 
 MULTIPLES = {"Net debt / EBITDA"}  # shown as 1.5x; everything else as a %
 
@@ -179,6 +187,49 @@ def show_comps(ticker: str, co: dict, cfg: dict, refresh: bool) -> None:
     print(f"  Range: {v.min():.2f} to {v.max():.2f} per share (median {v.median():.2f})")
 
 
+def portfolio_risk_free() -> tuple[float, str]:
+    rf = PORTFOLIO.get("risk_free")
+    if rf is not None:
+        return rf, "config"
+    return MARKET["risk_free"]["GBP"], "today's gilt yield (set PORTFOLIO risk_free for the period average)"
+
+
+def show_portfolio(refresh: bool) -> None:
+    weights = pd.Series(PORTFOLIO["weights"], dtype=float)
+    weights /= weights.sum()
+    prices = fetch_prices(list(weights.index), PORTFOLIO["start"], refresh)
+    returns = daily_returns(prices)
+    cov = covariance(returns)
+    rf, rf_source = portfolio_risk_free()
+
+    print(f"\n=== Model portfolio | {returns.index[0]:%d %b %Y} to "
+          f"{returns.index[-1]:%d %b %Y}, in GBP ===")
+    allocations = {
+        "My weights": weights,
+        "Equal weight": equal_weight(list(weights.index)),
+        "Minimum variance": minimum_variance(cov),
+        "Risk parity": risk_parity(cov),
+    }
+    print("\n--- Weights ---")
+    print(pd.DataFrame(allocations).map("{:.1%}".format))
+
+    table = compare_allocations(returns, allocations, rf, PORTFOLIO["benchmark"])
+    shown = table.copy().astype(object)
+    for row in table.index:
+        fmt = "{:.2f}" if row in ("Sharpe ratio", "Beta vs global equity") else "{:.1%}"
+        shown.loc[row] = [fmt.format(v) for v in table.loc[row]]
+    print("\n--- Results ---")
+    print(shown)
+    print(f"  Risk-free rate {rf:.2%} ({rf_source}).")
+
+    print("\n--- Share of risk vs share of money (my weights) ---")
+    rc = risk_contributions(weights, cov)
+    print(pd.DataFrame({"Weight": weights, "Share of risk": rc}).map("{:.1%}".format))
+
+    print("\n--- Correlation of daily returns ---")
+    print(correlation_table(returns).round(2))
+
+
 def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
     out = t.map(lambda v: "–" if pd.isna(v) else f"{v:.2f}")
     out.index = [f"{i:+.1%}" if row_signed else f"{i:.1%}" for i in t.index]
@@ -189,12 +240,16 @@ def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Equity research tool")
     parser.add_argument("tickers", nargs="*", help="Yahoo Finance tickers")
-    parser.add_argument("--only", choices=["ratios", "dcf", "comps"], help="run one section")
+    parser.add_argument("--only", choices=["ratios", "dcf", "comps", "portfolio"], help="run one section")
     parser.add_argument("--refresh", action="store_true", help="re-download data")
     args = parser.parse_args()
 
     pd.set_option("display.width", 200)
     pd.set_option("display.max_columns", 20)
+
+    if args.only == "portfolio":
+        show_portfolio(args.refresh)
+        return
 
     for ticker in args.tickers or COMPANIES:
         co = fetch_company(ticker, refresh=args.refresh)
