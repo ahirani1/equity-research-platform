@@ -37,6 +37,24 @@ Net debt / EBITDA             3.9x    2.6x    2.6x    2.4x
 ...
 ```
 
+## Dashboard
+
+```bash
+streamlit run app.py
+```
+
+An interactive version of the analysis. Pick a company and move through:
+
+- **Overview**: share price against the DCF and comps values, with a chart
+  of each method's range
+- **Financials**: ratio history and margin trends
+- **DCF**: sliders for growth, margin, WACC, terminal growth, tax and capex
+  that revalue the company live, plus the forecast, the bridge from enterprise
+  value to share price, the reverse DCF and a sensitivity heatmap
+- **Comparables**: peer multiples, the figures behind them and the implied
+  values
+- **My view**: my written conclusion for each company (`summaries/<ticker>.md`)
+
 ## Methodology
 
 - **Non-financial companies only.** For banks and insurers, debt is part of
@@ -82,7 +100,9 @@ Net debt / EBITDA             3.9x    2.6x    2.6x    2.4x
 
 ```
 config.py        companies to analyse and their peer groups
-main.py          entry point
+main.py          command-line entry point
+app.py           Streamlit dashboard
+summaries/       my written view on each company
 src/data.py      data download, cleaning and caching
 src/ratios.py    ratio calculations and warning flags
 src/dcf.py       DCF valuation, sensitivity analysis and reverse DCF
@@ -104,4 +124,4 @@ python main.py --refresh       # re-download the data
 
 ## Planned
 
-- Streamlit dashboard bringing it together, with a written summary per company
+- Written equity research report on Rolls-Royce, Tesco and ASML
