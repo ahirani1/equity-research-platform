@@ -193,23 +193,67 @@ def value(x: DCFInputs) -> dict:
     }
 
 
+def _apply(x: DCFInputs, name: str, v: float) -> DCFInputs:
+    """Return a copy of the inputs with one assumption changed. 'wacc' and
+    'growth_shift' (added to every forecast year's growth) are special cases;
+    any other name must be a DCFInputs field."""
+    if name == "wacc":
+        return replace(x, wacc_override=v)
+    if name == "growth_shift":
+        return replace(x, revenue_growth=[g + v for g in x.revenue_growth])
+    return replace(x, **{name: v})
+
+
 def sensitivity(x: DCFInputs, row: str, row_values, col: str, col_values) -> pd.DataFrame:
-    """Value per share across two inputs. 'wacc' and 'growth_shift' are handled
-    specially; any other name must be a DCFInputs field."""
+    """Value per share across two inputs."""
     out = pd.DataFrame(index=row_values, columns=col_values, dtype=float)
     for rv in row_values:
         for cv in col_values:
-            y = x
-            for name, v in ((row, rv), (col, cv)):
-                if name == "wacc":
-                    y = replace(y, wacc_override=v)
-                elif name == "growth_shift":
-                    y = replace(y, revenue_growth=[g + v for g in y.revenue_growth])
-                else:
-                    y = replace(y, **{name: v})
+            y = _apply(_apply(x, row, rv), col, cv)
             try:
                 out.loc[rv, cv] = value(y)["Value per share"]
             except ValueError:
                 out.loc[rv, cv] = np.nan
     out.index.name, out.columns.name = row, col
     return out
+
+
+def implied(x: DCFInputs, name: str, low: float, high: float) -> float | None:
+    """Reverse DCF: the value of one assumption that makes the DCF value equal
+    the current share price, holding everything else fixed. Uses bisection,
+    which works because value per share moves in one direction as each of
+    these assumptions changes. Returns None if no value in [low, high] works."""
+    def gap(v):
+        return value(_apply(x, name, v))["Value per share"] - x.price
+
+    try:
+        g_low, g_high = gap(low), gap(high)
+    except ValueError:
+        return None
+    if g_low * g_high > 0:
+        return None
+    for _ in range(60):
+        mid = (low + high) / 2
+        g_mid = gap(mid)
+        if g_low * g_mid <= 0:
+            high = mid
+        else:
+            low, g_low = mid, g_mid
+    return (low + high) / 2
+
+
+def reverse_dcf(x: DCFInputs) -> pd.DataFrame:
+    """For each key assumption, what it would need to be (with everything else
+    unchanged) to justify today's share price."""
+    r = wacc(x)["WACC"]
+    levers = {
+        "Target EBIT margin": ("target_ebit_margin", x.target_ebit_margin, 0.0, 0.9),
+        "Revenue growth shift (every year)": ("growth_shift", 0.0, -0.3, 0.6),
+        "Terminal growth": ("terminal_growth", x.terminal_growth, -0.05, r - 0.001),
+        "WACC": ("wacc", r, x.terminal_growth + 0.001, 0.4),
+    }
+    rows = []
+    for label, (name, current, low, high) in levers.items():
+        needed = implied(x, name, low, high)
+        rows.append({"Assumption": label, "Current": current, "Needed to justify price": needed})
+    return pd.DataFrame(rows).set_index("Assumption")

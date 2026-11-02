@@ -22,6 +22,8 @@ numbers can't be taken at face value.
 - Values each company with a five-year DCF: WACC build-up, forecast free cash
   flow, terminal value, bridge to value per share, and sensitivity tables for
   WACC vs terminal growth and revenue growth vs margin
+- Runs a reverse DCF: for each key assumption, the value it would need to
+  take to justify the current share price
 
 ```
 === Tesco PLC (TSCO.L) | reporting currency: GBP ===
@@ -55,6 +57,9 @@ Net debt / EBITDA             3.9x    2.6x    2.6x    2.4x
   free cash flow definition.
 - **London prices are converted from pence.** Yahoo quotes LSE shares in GBp
   while the accounts are in pounds.
+- **Reverse DCF.** When my valuation and the market disagree, I solve for
+  the margin, growth, terminal growth or WACC the share price implies (one at
+  a time, by bisection) and judge whether those are realistic.
 - **Reported vs normalised profit.** Free data sources don't always strip out
   one-off items. Rolls-Royce's reported 2025 EBITDA margin is inflated by
   items its own "underlying" figures exclude, so headline numbers need

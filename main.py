@@ -14,7 +14,7 @@ import pandas as pd
 
 from config import COMPANIES, MARKET
 from src.data import fetch_company
-from src.dcf import build_inputs, sensitivity, value, wacc
+from src.dcf import build_inputs, reverse_dcf, sensitivity, value, wacc
 from src.ratios import compute_ratios, trend_flags
 
 MULTIPLES = {"Net debt / EBITDA"}  # shown as 1.5x; everything else as a %
@@ -107,6 +107,16 @@ def show_dcf(co: dict, overrides: dict) -> None:
                         "target_ebit_margin", np.round(np.arange(m - 0.02, m + 0.0201, 0.01), 4))
     print("\n--- Value per share: revenue growth shift (rows) vs target EBIT margin (columns) ---")
     print(_fmt_grid(table, row_signed=True))
+
+    print(f"\n--- Reverse DCF: what the current price of {x.price:.2f} implies ---")
+    print("  Each row changes one assumption, holding the rest fixed.")
+    rev = reverse_dcf(x)
+    for label, row in rev.iterrows():
+        signed = label.startswith("Revenue growth shift")
+        fmt = "{:+.1%}" if signed else "{:.1%}"
+        needed = row["Needed to justify price"]
+        shown = "not reachable" if needed is None or pd.isna(needed) else fmt.format(needed)
+        print(f"  {label:<36} current {fmt.format(row['Current']):>7}   needed {shown:>13}")
 
 
 def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
