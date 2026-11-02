@@ -24,6 +24,8 @@ numbers can't be taken at face value.
   WACC vs terminal growth and revenue growth vs margin
 - Runs a reverse DCF: for each key assumption, the value it would need to
   take to justify the current share price
+- Compares each company with a peer group on EV/Sales, EV/EBITDA, EV/EBIT and
+  P/E, and values it at the peer median multiples
 
 ```
 === Tesco PLC (TSCO.L) | reporting currency: GBP ===
@@ -66,6 +68,11 @@ Net debt / EBITDA             3.9x    2.6x    2.6x    2.4x
 - **Reverse DCF.** When my valuation and the market disagree, I solve for
   the margin, growth, terminal growth or WACC the share price implies (one at
   a time, by bisection) and judge whether those are realistic.
+- **Comparable companies.** Trailing multiples (latest full year), enterprise
+  value = market cap + debt - cash, and the peer median rather than the mean so
+  one outlier can't dominate. Peers with a share price and accounts in
+  different currencies are left out rather than mixed. The target uses the same
+  underlying base year as its DCF, so the two methods are comparable.
 - **Reported vs normalised profit.** Free data sources don't always strip out
   one-off items. Rolls-Royce's reported 2025 EBITDA margin is inflated by
   items its own "underlying" figures exclude, so headline numbers need
@@ -78,7 +85,8 @@ config.py        companies to analyse and their peer groups
 main.py          entry point
 src/data.py      data download, cleaning and caching
 src/ratios.py    ratio calculations and warning flags
-src/dcf.py       DCF valuation and sensitivity analysis
+src/dcf.py       DCF valuation, sensitivity analysis and reverse DCF
+src/comps.py     comparable company analysis
 ```
 
 ## Running it
@@ -90,11 +98,10 @@ pip install -r requirements.txt
 
 python main.py                 # all companies in config.py
 python main.py ASML.AS         # a single ticker
-python main.py --only dcf      # just the valuation
+python main.py --only dcf      # just the DCF (or: --only ratios, --only comps)
 python main.py --refresh       # re-download the data
 ```
 
 ## Planned
 
-- Comparable company analysis against each peer group
 - Streamlit dashboard bringing it together, with a written summary per company

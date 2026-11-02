@@ -1,9 +1,9 @@
 """
-Ratio analysis and DCF valuation for each company.
+Ratio analysis, DCF valuation and comparable company analysis for each company.
 
     python main.py                  # every company in config.py
     python main.py RR.L TSCO.L      # specific tickers
-    python main.py --only ratios    # just the ratio analysis (or: --only dcf)
+    python main.py --only ratios    # one section (or: --only dcf, --only comps)
     python main.py --refresh        # re-download instead of using cached data
 """
 
@@ -12,9 +12,11 @@ import argparse
 import numpy as np
 import pandas as pd
 
+import config
 from config import COMPANIES, MARKET
+from src.comps import company_metrics, implied_value, peer_table, warnings
 from src.data import fetch_company
-from src.dcf import build_inputs, reverse_dcf, sensitivity, value, wacc
+from src.dcf import _price_in_reporting_units, build_inputs, reverse_dcf, sensitivity, value, wacc
 from src.ratios import compute_ratios, trend_flags
 
 MULTIPLES = {"Net debt / EBITDA"}  # shown as 1.5x; everything else as a %
@@ -122,6 +124,55 @@ def show_dcf(co: dict, overrides: dict) -> None:
         print(f"  {label:<36} current {fmt.format(row['Current']):>7}   needed {shown:>13}")
 
 
+def show_comps(ticker: str, co: dict, cfg: dict, refresh: bool) -> None:
+    overrides = cfg.get("dcf", {})
+    target = company_metrics(co, overrides)
+    adjustments = getattr(config, "PEER_ADJUSTMENTS", {})
+    peers = {}
+    for p in cfg.get("peers", []):
+        try:
+            peers[p] = company_metrics(fetch_company(p, refresh=refresh),
+                                       adjustments=adjustments.get(p))
+        except Exception as e:  # one bad download shouldn't stop the rest
+            print(f"  Skipped peer {p}: {e}")
+    if not peers:
+        print("\nComps skipped: no peers available.")
+        return
+
+    table = peer_table(ticker, target, peers)
+    shown = table.copy()
+    for k in table.columns[1:]:
+        shown[k] = table[k].map(lambda v: "–" if pd.isna(v) else f"{v:.1f}x")
+    print("\n--- Comparable companies (trailing multiples) ---")
+    print(shown)
+    skipped = [t for t, m in peers.items() if not m["Comparable"]]
+    if skipped:
+        print("  Blank rows: share price and accounts in different currencies: "
+              + ", ".join(skipped))
+    if overrides:
+        print("  Target figures use the underlying base year from the DCF overrides.")
+    for t, m in peers.items():
+        if m["Adjusted"]:
+            print(f"  {t}: adjusted figures used for " + ", ".join(m["Adjusted"]))
+        for w in warnings(m):
+            print(f"  Check {t}: {w}")
+
+    price = _price_in_reporting_units(co["info"])
+    implied = implied_value(target, table.loc["Peer median"], price)
+    if implied.empty:
+        return
+    out = implied.copy()
+    out["Peer median"] = implied["Peer median"].map("{:.1f}x".format)
+    for c in ["Applied to", "Implied EV", "Implied equity"]:
+        out[c] = implied[c].map(money)
+    out["Value per share"] = implied["Value per share"].map("{:.2f}".format)
+    out["Upside"] = implied["Upside"].map("{:+.1%}".format)
+    print(f"\n--- Implied value from peer medians (current price {price:.2f}) ---")
+    print(out)
+    v = implied["Value per share"]
+    print(f"  Range: {v.min():.2f} to {v.max():.2f} per share (median {v.median():.2f})")
+
+
 def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
     out = t.map(lambda v: "–" if pd.isna(v) else f"{v:.2f}")
     out.index = [f"{i:+.1%}" if row_signed else f"{i:.1%}" for i in t.index]
@@ -132,7 +183,7 @@ def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Equity research tool")
     parser.add_argument("tickers", nargs="*", help="Yahoo Finance tickers")
-    parser.add_argument("--only", choices=["ratios", "dcf"], help="run one section")
+    parser.add_argument("--only", choices=["ratios", "dcf", "comps"], help="run one section")
     parser.add_argument("--refresh", action="store_true", help="re-download data")
     args = parser.parse_args()
 
@@ -145,10 +196,13 @@ def main() -> None:
         currency = co["info"].get("financialCurrency")
         print(f"\n=== {name} ({ticker}) | reporting currency: {currency} ===")
 
-        if args.only != "dcf":
+        cfg = COMPANIES.get(ticker, {})
+        if args.only in (None, "ratios"):
             show_ratios(co)
-        if args.only != "ratios":
-            show_dcf(co, COMPANIES.get(ticker, {}).get("dcf", {}))
+        if args.only in (None, "dcf"):
+            show_dcf(co, cfg.get("dcf", {}))
+        if args.only in (None, "comps"):
+            show_comps(ticker, co, cfg, args.refresh)
 
 
 if __name__ == "__main__":
