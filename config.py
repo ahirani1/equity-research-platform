@@ -29,7 +29,15 @@ MARKET = {
 COMPANIES = {
     "RR.L": {  # Rolls-Royce - aero engines, power systems
         "peers": ["SAF.PA", "GE", "MTX.DE"],
-        "dcf": {},
+            "dcf": {
+            # Source: Rolls-Royce FY2025 results, 26 Feb 2026
+            "base_revenue": 20_059e6,      # underlying revenue
+            "base_ebit_margin": 0.173,     # underlying operating margin
+            "target_ebit_margin": 0.19,    # midpoint of 18-20% 2028 target
+            "revenue_growth": [0.10, 0.10, 0.10, 0.06, 0.04],  # implied by 2028 targets
+            "tax_rate": 0.25,              # UK rate; current low rate reflects past losses
+            "capex_pct": 0.05,             # at least D&A
+            },
     },
     "TSCO.L": {  # Tesco - grocery retail
         "peers": ["SBRY.L", "AD.AS", "CA.PA"],
