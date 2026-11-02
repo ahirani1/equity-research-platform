@@ -19,6 +19,9 @@ numbers can't be taken at face value.
   intensity across the available history
 - Flags patterns worth investigating, such as falling margins, negative equity,
   weak cash conversion or a large gap between reported and normalised profit
+- Values each company with a five-year DCF: WACC build-up, forecast free cash
+  flow, terminal value, bridge to value per share, and sensitivity tables for
+  WACC vs terminal growth and revenue growth vs margin
 
 ```
 === Tesco PLC (TSCO.L) | reporting currency: GBP ===
@@ -43,6 +46,15 @@ Net debt / EBITDA             3.9x    2.6x    2.6x    2.4x
   -110% and +644%. These are now shown as blank and flagged instead.
 - **Invested capital = equity + total debt - cash**, applied the same way to
   every company.
+- **DCF inputs default to history and can be overridden.** Each input is
+  printed with its source (history, data feed or my override), so it's clear
+  which numbers are assumptions. Growth fades in a straight line from the
+  recent average to the terminal rate.
+- **Leases are treated as debt.** Under IFRS 16, lease costs sit below EBIT,
+  so lease liabilities are included in net debt to stay consistent with the
+  free cash flow definition.
+- **London prices are converted from pence.** Yahoo quotes LSE shares in GBp
+  while the accounts are in pounds.
 - **Reported vs normalised profit.** Free data sources don't always strip out
   one-off items. Rolls-Royce's reported 2025 EBITDA margin is inflated by
   items its own "underlying" figures exclude, so headline numbers need
@@ -55,6 +67,7 @@ config.py        companies to analyse and their peer groups
 main.py          entry point
 src/data.py      data download, cleaning and caching
 src/ratios.py    ratio calculations and warning flags
+src/dcf.py       DCF valuation and sensitivity analysis
 ```
 
 ## Running it
@@ -66,12 +79,11 @@ pip install -r requirements.txt
 
 python main.py                 # all companies in config.py
 python main.py ASML.AS         # a single ticker
+python main.py --only dcf      # just the valuation
 python main.py --refresh       # re-download the data
 ```
 
 ## Planned
 
-- DCF valuation with a WACC build-up and sensitivity tables, with manual
-  overrides for base-year figures where the data feed is misleading
 - Comparable company analysis against each peer group
 - Streamlit dashboard bringing it together, with a written summary per company
