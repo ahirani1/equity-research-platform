@@ -14,7 +14,7 @@ import pandas as pd
 
 import config
 from config import COMPANIES, MARKET
-from src.comps import company_metrics, implied_value, peer_table, warnings
+from src.comps import company_metrics, figures_table, implied_value, peer_table, warnings
 from src.data import fetch_company
 from src.dcf import _price_in_reporting_units, build_inputs, reverse_dcf, sensitivity, value, wacc
 from src.ratios import compute_ratios, trend_flags
@@ -126,8 +126,8 @@ def show_dcf(co: dict, overrides: dict) -> None:
 
 def show_comps(ticker: str, co: dict, cfg: dict, refresh: bool) -> None:
     overrides = cfg.get("dcf", {})
-    target = company_metrics(co, overrides)
     adjustments = getattr(config, "PEER_ADJUSTMENTS", {})
+    target = company_metrics(co, overrides, adjustments.get(ticker))
     peers = {}
     for p in cfg.get("peers", []):
         try:
@@ -138,6 +138,12 @@ def show_comps(ticker: str, co: dict, cfg: dict, refresh: bool) -> None:
     if not peers:
         print("\nComps skipped: no peers available.")
         return
+
+    figs = figures_table(ticker, target, peers)
+    for c in figs.columns[1:]:
+        figs[c] = figs[c].map(lambda v: "–" if pd.isna(v) else f"{v:,.0f}")
+    print("\n--- Figures used (millions, each company's reporting currency) ---")
+    print(figs)
 
     table = peer_table(ticker, target, peers)
     shown = table.copy()
@@ -151,7 +157,7 @@ def show_comps(ticker: str, co: dict, cfg: dict, refresh: bool) -> None:
               + ", ".join(skipped))
     if overrides:
         print("  Target figures use the underlying base year from the DCF overrides.")
-    for t, m in peers.items():
+    for t, m in {ticker: target, **peers}.items():
         if m["Adjusted"]:
             print(f"  {t}: adjusted figures used for " + ", ".join(m["Adjusted"]))
         for w in warnings(m):

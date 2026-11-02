@@ -75,9 +75,12 @@ def company_metrics(co: dict, overrides: dict | None = None,
     if "base_ebit_margin" in overrides:
         ebit = sales * overrides["base_ebit_margin"]
         ebitda = ebit + da
-        interest = abs(_latest(get(inc, "Interest Expense", "Interest Expense Non Operating")))
+        # Net interest: expense minus any interest income
+        expense = abs(_latest(get(inc, "Interest Expense", "Interest Expense Non Operating")))
+        income = abs(_latest(get(inc, "Interest Income", "Interest Income Non Operating")))
+        interest = (0 if np.isnan(expense) else expense) - (0 if np.isnan(income) else income)
         tax = overrides.get("tax_rate", 0.25)
-        earnings = (ebit - (0 if np.isnan(interest) else interest)) * (1 - tax)
+        earnings = (ebit - interest) * (1 - tax)
     cash = overrides.get("cash", cash)
 
     adjusted = sorted((adjustments or {}).keys())
@@ -86,6 +89,7 @@ def company_metrics(co: dict, overrides: dict | None = None,
 
     return {
         "Name": info.get("longName") or "",
+        "Currency": info.get("financialCurrency") or "",
         "Market cap": info.get("marketCap"),
         "Net debt": debt - cash,
         **figures,
@@ -93,6 +97,17 @@ def company_metrics(co: dict, overrides: dict | None = None,
         "Shares": info.get("sharesOutstanding"),
         "Comparable": _same_currency(info),
     }
+
+
+def figures_table(target: str, target_metrics: dict, peers: dict) -> pd.DataFrame:
+    """The underlying figures behind each multiple, in millions of each
+    company's own reporting currency, so odd results can be traced."""
+    rows = {}
+    for t, m in {target: target_metrics, **peers}.items():
+        rows[t] = {"Currency": m["Currency"],
+                   **{k: (m[k] or np.nan) / 1e6 for k in
+                      ["Market cap", "Net debt", "Sales", "EBITDA", "EBIT", "Earnings"]}}
+    return pd.DataFrame(rows).T
 
 
 def warnings(m: dict) -> list[str]:
