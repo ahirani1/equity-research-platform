@@ -54,6 +54,15 @@ COMPANIES = {
     },
     "ASML.AS": {  # ASML - semiconductor lithography equipment
         "peers": ["AMAT", "LRCX", "KLAC"],
-        "dcf": {},
+                   "dcf": {
+               # Source: ASML Annual Report 2025; 2030 targets from Nov 2024 Investor Day
+               "base_ebit_margin": 0.346,     # income from operations / sales
+               "target_ebit_margin": 0.40,    # 2030: 58% gross margin less ~18% opex
+               "revenue_growth": [0.117, 0.0925, 0.0925, 0.0925, 0.0925],  # €36.5bn 2026, €52bn 2030
+               "tax_rate": 0.177,             # 2025 effective tax rate
+               "capex_pct": 0.05,             # 2025 actual
+               "target_capex_pct": 0.035,     # near steady state by 2030
+               "cash": 13_322e6,              # cash + short-term investments
+               },
     },
 }
