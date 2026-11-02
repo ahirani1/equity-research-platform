@@ -29,6 +29,7 @@ from src.portfolio import (compare_allocations, correlation_table, covariance,
                            minimum_variance, portfolio_returns, risk_contributions,
                            risk_parity)
 from src.quality import accounting_quality, adjustments_table, altman_z, credit_metrics
+from src.lbo import from_config as lbo_from_config, irr_grid, max_price as lbo_max_price, run as run_lbo
 from src.ratios import compute_ratios, trend_flags
 
 # yfinance triggers pandas deprecation warnings that aren't about this code
@@ -224,7 +225,14 @@ comp_table = peer_table(ticker, target_m, peers_m) if peers_m else None
 implied = (implied_value(target_m, comp_table.loc["Peer median"], price)
            if comp_table is not None else pd.DataFrame())
 
-tabs = st.tabs(["Overview", "Financials", "DCF", "Comparables", "My view"])
+lbo_cfg = cfg.get("lbo")
+tab_names = ["Overview", "Financials", "DCF", "Comparables"]
+if lbo_cfg and base_inputs is not None:
+    tab_names.append("LBO")
+tab_names.append("My view")
+tabs = st.tabs(tab_names)
+lbo_inputs = lbo_from_config(lbo_cfg) if "LBO" in tab_names else None
+lbo_floor = lbo_max_price(base_inputs, lbo_inputs) if lbo_inputs else None
 
 # ---------------------------------------------------------------- DCF tab
 # Built before the overview so the overview can use the live slider values.
@@ -399,6 +407,9 @@ with tabs[0]:
     if not implied.empty:
         for k, v in implied["Value per share"].items():
             bars.append((f"Comps: {k}", v, v, v))
+    if lbo_floor is not None:
+        bars.append((f"LBO: max price for a {lbo_inputs.target_irr:.0%} IRR",
+                     lbo_floor, lbo_floor, lbo_floor))
     if bars:
         fig = go.Figure()
         for label, lo, hi, mid in bars:
@@ -539,8 +550,95 @@ with tabs[3]:
                 figs[c] = figs[c].map(lambda v: "–" if pd.isna(v) else f"{v:,.0f}")
             st.dataframe(figs, width="stretch")
 
+# ---------------------------------------------------------------- LBO tab
+if lbo_inputs is not None:
+    with tabs[tab_names.index("LBO")]:
+        L = lbo_inputs
+        st.caption("A private equity fund buys the whole company, mostly with "
+                   "borrowed money, pays the debt down from cash flow and sells "
+                   f"after {len(base_inputs.revenue_growth)} years. Uses the same "
+                   "operating forecast as my DCF base case.")
+        a1, a2, a3 = st.columns(3)
+        prem = a1.slider("Takeover premium", 0.0, 60.0, L.premium * 100, 5.0,
+                         format="%.0f%%", key=f"{ticker}_lbo_prem") / 100
+        senior_x = a2.slider("Senior debt (x EBITDA)", 0.0, 6.0, L.senior_multiple, 0.25,
+                             key=f"{ticker}_lbo_senior")
+        hy_x = a3.slider("High-yield bonds (x EBITDA)", 0.0, 3.0, L.hy_multiple, 0.25,
+                         key=f"{ticker}_lbo_hy")
+        base_run = run_lbo(base_inputs, L)
+        exit_m = a1.slider("Exit EV / EBITDA", 4.0, 16.0,
+                           round(L.exit_multiple or base_run["entry_multiple"], 1), 0.25,
+                           key=f"{ticker}_lbo_exit",
+                           help="Starts at the entry multiple: no multiple expansion")
+        L = replace(L, premium=prem, senior_multiple=senior_x, hy_multiple=hy_x,
+                    exit_multiple=exit_m)
+        r = run_lbo(base_inputs, L)
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("IRR", pct(r["irr"]), f"target {pct(L.target_irr)}", delta_color="off")
+        m2.metric("Money multiple (MOIC)", f"{r['moic']:.2f}x")
+        m3.metric("Offer price", f"{sym}{r['offer_price']:,.2f}")
+        floor = lbo_max_price(base_inputs, replace(L, exit_multiple=None))
+        m4.metric(f"Max price for {pct(L.target_irr)} IRR",
+                  "–" if floor is None else f"{sym}{floor:,.2f}",
+                  None if floor is None else pct(floor / price - 1))
+
+        left, right = st.columns(2)
+        with left:
+            st.subheader("Sources and uses")
+            su = pd.DataFrame({
+                "Sources": [f"{k}: {millions(v, sym)}" for k, v in r["sources"].items()],
+                "Uses": [f"{k}: {millions(v, sym)}" for k, v in r["uses"].items()],
+            })
+            st.dataframe(su, hide_index=True, width="stretch")
+            st.caption(f"Entry EV {millions(r['entry_ev'], sym)} = "
+                       f"{r['entry_multiple']:.1f}x EBITDA of "
+                       f"{millions(r['entry_ebitda'], sym)}. Debt "
+                       f"{r['total_debt_multiple']:.2f}x EBITDA; equity is "
+                       f"{r['equity_share']:.0%} of the funding.")
+        with right:
+            st.subheader("Where the return comes from")
+            att = r["attribution"]
+            wf = go.Figure(go.Waterfall(
+                x=list(att.index) + ["Equity gain"],
+                measure=["relative"] * len(att) + ["total"],
+                y=list(att.values / 1e6) + [att.sum() / 1e6],
+                text=[millions(v, sym) for v in att.values] + [millions(att.sum(), sym)],
+                textposition="outside"))
+            wf.update_layout(height=360, margin=dict(t=20), yaxis_title=f"{sym}m")
+            st.plotly_chart(wf, width="stretch")
+
+        st.subheader("Debt schedule")
+        sch = r["schedule"].copy()
+        shown = pd.DataFrame(index=sch.index)
+        for c in sch.columns:
+            if c in ("Net debt / EBITDA", "Interest cover (EBITDA / interest)"):
+                shown[c] = sch[c].map(lambda v: "–" if pd.isna(v) else f"{v:.1f}x")
+            else:
+                shown[c] = sch[c].map(lambda v: millions(v, sym))
+        st.dataframe(shown.T, width="stretch")
+
+        st.subheader("IRR: takeover premium vs exit multiple")
+        em = r["entry_multiple"]
+        grid = irr_grid(base_inputs, L, [0.0, 0.15, 0.30, 0.45],
+                        [round(em - 2, 1), round(em - 1, 1), round(em, 1),
+                         round(em + 1, 1), round(em + 2, 1)])
+        heat = go.Figure(go.Heatmap(
+            z=grid.values, x=[f"{c:.1f}x" for c in grid.columns],
+            y=[f"{i:.0%}" for i in grid.index],
+            text=[[pct(v) for v in row] for row in grid.values], texttemplate="%{text}",
+            colorscale="RdYlGn", zmid=L.target_irr))
+        heat.update_layout(xaxis_title="Exit EV / EBITDA", yaxis_title="Premium",
+                           xaxis_type="category", yaxis_type="category",
+                           height=320, margin=dict(t=20))
+        st.plotly_chart(heat, width="stretch")
+        st.caption(f"Green beats the {pct(L.target_irr)} target. Existing net debt "
+                   "including leases is assumed refinanced at entry, consistent "
+                   "with treating leases as debt elsewhere; interest is charged on "
+                   "opening balances.")
+
 # ---------------------------------------------------------------- my view
-with tabs[4]:
+with tabs[tab_names.index("My view")]:
     path = SUMMARY_DIR / f"{ticker}.md"
     if path.exists():
         st.markdown(path.read_text())

@@ -29,6 +29,9 @@ numbers can't be taken at face value.
   changed from the data feed next to the original
 - Compares each company with a peer group on EV/Sales, EV/EBITDA, EV/EBIT and
   P/E, and values it at the peer median multiples
+- Models a leveraged buyout of Tesco: sources and uses, a debt schedule with a
+  cash sweep, IRR and money multiple, where the return comes from, and the
+  highest price a private equity buyer could pay for a 20% IRR
 
 ```
 === Tesco PLC (TSCO.L) | reporting currency: GBP ===
@@ -57,6 +60,8 @@ An interactive version of the analysis. Pick a company and move through:
   value to share price, the reverse DCF and a sensitivity heatmap
 - **Comparables**: peer multiples, the figures behind them and the implied
   values
+- **LBO** (Tesco): buyout returns with sliders for the premium, debt and exit
+  multiple; the price floor also appears on the overview chart
 - **My view**: my written conclusion for each company (`summaries/<ticker>.md`)
 
 A second view, **Model portfolio**, combines a core of three funds (global
@@ -106,6 +111,14 @@ risk. Everything is in pounds.
   Altman Z-score is a bankruptcy screen built on US manufacturers, so it's a
   rough signal for other sectors. The accruals ratio (net income minus
   operating cash flow, over average assets) flags profit running ahead of cash.
+- **LBO on the DCF forecast.** The buyout uses the same operating forecast as
+  the DCF. Senior debt is repaid from all spare cash; high-yield bonds are
+  repaid at exit. The price floor assumes the fund sells at the multiple it
+  paid, so a cheaper purchase isn't flattered by a more expensive sale.
+  Existing net debt including leases is treated as refinanced, a
+  simplification. Tesco's size (about £44bn of enterprise value) would make
+  this the largest UK buyout on record, so the results show what the business
+  could support rather than a prediction.
 - **Portfolio in pounds.** Euro-listed holdings are converted at the daily
   EUR/GBP rate, so their risk includes currency risk for a UK investor.
 - **No return forecasts in the optimisers.** Minimum variance and risk parity
@@ -130,6 +143,7 @@ src/ratios.py    ratio calculations and warning flags
 src/quality.py   credit metrics, accounting quality and adjustment log
 src/dcf.py       DCF valuation, sensitivity analysis and reverse DCF
 src/comps.py     comparable company analysis
+src/lbo.py       leveraged buyout returns and price floor
 src/portfolio.py portfolio risk and allocation
 ```
 
@@ -142,7 +156,7 @@ pip install -r requirements.txt
 
 python main.py                 # all companies in config.py
 python main.py ASML.AS         # a single ticker
-python main.py --only dcf      # just the DCF (or: ratios, quality, comps)
+python main.py --only dcf      # just the DCF (or: ratios, quality, comps, lbo)
 python main.py --only portfolio  # the model portfolio
 python main.py --refresh       # re-download the data
 ```

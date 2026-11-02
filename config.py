@@ -19,7 +19,6 @@ MARKET = {
     # Equity risk premium. Source: Damodaran implied ERP, date: Jan 2026
     "equity_risk_premium": 0.0423,
 }
-
 # DCF overrides go under "dcf". Anything not set defaults to the company's
 # own history (see src/dcf.py). Available keys:
 #   revenue_growth       single rate or a list of 5 (one per forecast year)
@@ -59,17 +58,28 @@ COMPANIES = {
             },
     },
     "TSCO.L": {  # Tesco - grocery retail
-            "peers": ["SBRY.L", "AD.AS", "JMT.LS"],               
-               "dcf": {
-               # Source: Tesco Preliminary Results 2025/26 (year to 28 Feb 2026)
-               "base_revenue": 72_464e6,      # 52-week revenue inc. fuel, exc. VAT
-               "base_ebit_margin": 0.0435,    # adjusted operating profit / revenue
-               "target_ebit_margin": 0.0435,  # company aims to maintain margins
-               "revenue_growth": [0.03, 0.03, 0.03, 0.025, 0.025],
-               "tax_rate": 0.268,             # adjusted effective tax rate
-               "capex_pct": 0.0255,           # = D&A; counts new store leases as investment
-               "cash": 4_517e6,               # so net debt matches company's £10,563m
-               },
+        "peers": ["SBRY.L", "AD.AS", "JMT.LS"],
+        # Leveraged buyout assumptions. Senior rate: roughly Bank Rate 3.75%
+        # plus a 3.5% lending margin; high-yield bonds priced above that.
+        "lbo": {
+            "premium": 0.30,          # typical UK takeover premium
+            "senior_multiple": 4.0,   # senior debt, x EBITDA
+            "senior_rate": 0.0725,
+            "hy_multiple": 1.5,       # high-yield bonds, x EBITDA
+            "hy_rate": 0.09,
+            "fees_pct": 0.02,         # deal and financing fees, % of EV
+            "target_irr": 0.20,       # typical private equity target
+            },      
+            "dcf": {
+            # Source: Tesco Preliminary Results 2025/26 (year to 28 Feb 2026)
+            "base_revenue": 72_464e6,      # 52-week revenue inc. fuel, exc. VAT
+            "base_ebit_margin": 0.0435,    # adjusted operating profit / revenue
+            "target_ebit_margin": 0.0435,  # company aims to maintain margins
+            "revenue_growth": [0.03, 0.03, 0.03, 0.025, 0.025],
+            "tax_rate": 0.268,             # adjusted effective tax rate
+            "capex_pct": 0.0255,           # = D&A; counts new store leases as investment
+            "cash": 4_517e6,               # so net debt matches company's £10,563m
+            },
     },
     "ASML.AS": {  # ASML - semiconductor lithography equipment
         "peers": ["AMAT", "LRCX", "KLAC", "ASM.AS"],

@@ -23,6 +23,7 @@ from src.portfolio import (compare_allocations, correlation_table, covariance,
                            daily_returns, equal_weight, fetch_prices,
                            minimum_variance, risk_contributions, risk_parity)
 from src.quality import accounting_quality, adjustments_table, altman_z, credit_metrics
+from src.lbo import from_config as lbo_from_config, irr_grid, max_price as lbo_max_price, run as run_lbo
 from src.ratios import compute_ratios, trend_flags
 
 # yfinance triggers pandas deprecation warnings that aren't about this code
@@ -80,6 +81,59 @@ def show_quality(ticker: str, co: dict, cfg: dict) -> None:
         for _, r in adj.iterrows():
             print(f"  {r['Item']:<34} feed {fmt_value(r['Data feed'], r['Type']):>30}"
                   f"   used {fmt_value(r['Used'], r['Type']):>30}")
+
+
+def show_lbo(co: dict, cfg: dict) -> None:
+    if not cfg.get("lbo"):
+        return
+    try:
+        x, _ = build_inputs(co, cfg.get("dcf", {}), MARKET)
+    except ValueError as e:
+        print(f"\nLBO skipped: {e}")
+        return
+    L = lbo_from_config(cfg["lbo"])
+    r = run_lbo(x, L)
+    print(f"\n--- LBO at a {L.premium:.0%} premium (offer price {r['offer_price']:.2f}) ---")
+    print("  Sources:")
+    for k, v in r["sources"].items():
+        print(f"    {k:<30} {money(v):>12}")
+    print("  Uses:")
+    for k, v in r["uses"].items():
+        print(f"    {k:<30} {money(v):>12}")
+    print(f"  Entry EV {money(r['entry_ev'])} = {r['entry_multiple']:.1f}x EBITDA of "
+          f"{money(r['entry_ebitda'])}; debt {r['total_debt_multiple']:.2f}x EBITDA; "
+          f"equity {r['equity_share']:.0%} of funding")
+
+    sch = r["schedule"].copy().astype(object)
+    for c in sch.columns:
+        if c in ("Net debt / EBITDA", "Interest cover (EBITDA / interest)"):
+            sch[c] = [f"{v:.1f}x" for v in r["schedule"][c]]
+        else:
+            sch[c] = [money(v) for v in r["schedule"][c]]
+    print("\n  Debt schedule:")
+    print(sch.T)
+
+    print(f"\n  Exit: {r['exit_multiple']:.1f}x EBITDA = {money(r['exit_ev'])}; "
+          f"equity {money(r['exit_equity'])}")
+    print(f"  IRR {r['irr']:.1%} | MOIC {r['moic']:.2f}x | target IRR {L.target_irr:.0%}")
+    print("  Where the equity gain came from:")
+    for k, v in r["attribution"].items():
+        print(f"    {k:<30} {money(v):>12}")
+    print(f"    {'Total':<30} {money(r['attribution'].sum()):>12}")
+
+    floor = lbo_max_price(x, L)
+    if floor is not None:
+        print(f"\n  Max price for a {L.target_irr:.0%} IRR (exit at entry multiple): "
+              f"{floor:.2f} ({floor / x.price - 1:+.1%} vs current {x.price:.2f})")
+
+    em = r["entry_multiple"]
+    grid = irr_grid(x, L, [0.0, 0.15, 0.30, 0.45],
+                    [round(em - 2, 1), round(em - 1, 1), round(em, 1), round(em + 1, 1), round(em + 2, 1)])
+    shown = grid.map(lambda v: f"{v:.1%}")
+    shown.index = [f"{i:.0%}" for i in grid.index]
+    shown.columns = [f"{c:.1f}x" for c in grid.columns]
+    print("\n  IRR: premium (rows) vs exit EV / EBITDA (columns)")
+    print(shown)
 
 
 def show_ratios(co: dict) -> None:
@@ -284,7 +338,7 @@ def _fmt_grid(t: pd.DataFrame, row_signed: bool = False) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Equity research tool")
     parser.add_argument("tickers", nargs="*", help="Yahoo Finance tickers")
-    parser.add_argument("--only", choices=["ratios", "quality", "dcf", "comps", "portfolio"], help="run one section")
+    parser.add_argument("--only", choices=["ratios", "quality", "dcf", "comps", "lbo", "portfolio"], help="run one section")
     parser.add_argument("--refresh", action="store_true", help="re-download data")
     args = parser.parse_args()
 
@@ -308,6 +362,8 @@ def main() -> None:
             show_quality(ticker, co, cfg)
         if args.only in (None, "dcf"):
             show_dcf(co, cfg.get("dcf", {}))
+        if args.only in (None, "lbo"):
+            show_lbo(co, cfg)
         if args.only in (None, "comps"):
             show_comps(ticker, co, cfg, args.refresh)
 
