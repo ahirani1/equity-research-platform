@@ -1,5 +1,7 @@
 # Equity Research Platform
 
+Live demo: https://aaryan-equity-research.streamlit.app
+
 A Python tool for the first stage of equity research on listed companies:
 pulling financial statements, analysing performance against history, and
 building towards peer comparison and DCF valuation.
