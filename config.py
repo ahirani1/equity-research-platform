@@ -8,6 +8,7 @@ classification. Tickers use Yahoo Finance format: '.L' London, '.PA' Paris,
 
 # Market-wide inputs for the cost of capital. Record the source and date of
 # each figure when you update it.
+
 MARKET = {
     # 10-year government bond yield in each reporting currency
     "risk_free": {
@@ -29,11 +30,19 @@ MARKET = {
 
 # Adjusted figures for peers whose reported numbers include one-off items.
 # Keys: Sales, EBITDA, EBIT, Earnings (in the company's reporting currency).
+
 PEER_ADJUSTMENTS = {
     # Safran FY2025 results (13 Feb 2026), adjusted figures in EUR.
     # Earnings: €1,401m dividend at a 40% payout of adjusted net income.
     "SAF.PA": {"Sales": 31_329e6, "EBITDA": 6_318e6, "EBIT": 5_197e6,
                "Earnings": 3_500e6},
+
+    # Tesco 2025/26 adjusted profit after tax, 52 weeks (prelim results)
+    "TSCO.L": {"Earnings": 1_917e6},
+
+    # Sainsbury's FY2025/26 prelims: underlying figures, GBP.
+    # Earnings: 22.3p underlying EPS x ~2.2bn shares (cross-check: £718m PBT less ~30% tax).
+    "SBRY.L": {"EBITDA": 2_330e6, "EBIT": 1_025e6, "Earnings": 495e6},
 }
 
 COMPANIES = {
@@ -50,8 +59,8 @@ COMPANIES = {
             },
     },
     "TSCO.L": {  # Tesco - grocery retail
-        "peers": ["SBRY.L", "AD.AS", "CA.PA", "KR"],
-                   "dcf": {
+            "peers": ["SBRY.L", "AD.AS", "JMT.LS"],               
+               "dcf": {
                # Source: Tesco Preliminary Results 2025/26 (year to 28 Feb 2026)
                "base_revenue": 72_464e6,      # 52-week revenue inc. fuel, exc. VAT
                "base_ebit_margin": 0.0435,    # adjusted operating profit / revenue
@@ -64,7 +73,7 @@ COMPANIES = {
     },
     "ASML.AS": {  # ASML - semiconductor lithography equipment
         "peers": ["AMAT", "LRCX", "KLAC", "ASM.AS"],
-                   "dcf": {
+               "dcf": {
                # Source: ASML Annual Report 2025; 2030 targets from Nov 2024 Investor Day
                "base_ebit_margin": 0.346,     # income from operations / sales
                "target_ebit_margin": 0.40,    # 2030: 58% gross margin less ~18% opex
