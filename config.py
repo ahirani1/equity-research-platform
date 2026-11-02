@@ -26,6 +26,16 @@ MARKET = {
 #                        annual report when the reported one is distorted
 #   target_ebit_margin   margin reached by year 5
 #   tax_rate, da_pct, capex_pct, nwc_pct, terminal_growth, beta, cost_of_debt
+
+# Adjusted figures for peers whose reported numbers include one-off items.
+# Keys: Sales, EBITDA, EBIT, Earnings (in the company's reporting currency).
+PEER_ADJUSTMENTS = {
+    # Safran FY2025 results (13 Feb 2026), adjusted figures in EUR.
+    # Earnings: €1,401m dividend at a 40% payout of adjusted net income.
+    "SAF.PA": {"Sales": 31_329e6, "EBITDA": 6_318e6, "EBIT": 5_197e6,
+               "Earnings": 3_500e6},
+}
+
 COMPANIES = {
     "RR.L": {  # Rolls-Royce - aero engines, power systems
         "peers": ["SAF.PA", "GE", "MTX.DE"],
@@ -36,11 +46,11 @@ COMPANIES = {
             "target_ebit_margin": 0.19,    # midpoint of 18-20% 2028 target
             "revenue_growth": [0.10, 0.10, 0.10, 0.06, 0.04],  # implied by 2028 targets
             "tax_rate": 0.25,              # UK rate; current low rate reflects past losses
-            "capex_pct": 0.0255,           # = D&A; counts new store leases as investment
+            "capex_pct": 0.05,             # at least D&A
             },
     },
     "TSCO.L": {  # Tesco - grocery retail
-        "peers": ["SBRY.L", "AD.AS", "CA.PA"],
+        "peers": ["SBRY.L", "AD.AS", "CA.PA", "KR"],
                    "dcf": {
                # Source: Tesco Preliminary Results 2025/26 (year to 28 Feb 2026)
                "base_revenue": 72_464e6,      # 52-week revenue inc. fuel, exc. VAT
@@ -48,12 +58,12 @@ COMPANIES = {
                "target_ebit_margin": 0.0435,  # company aims to maintain margins
                "revenue_growth": [0.03, 0.03, 0.03, 0.025, 0.025],
                "tax_rate": 0.268,             # adjusted effective tax rate
-               "capex_pct": 0.025,            # = D&A; counts new store leases as investment
+               "capex_pct": 0.0255,           # = D&A; counts new store leases as investment
                "cash": 4_517e6,               # so net debt matches company's £10,563m
                },
     },
     "ASML.AS": {  # ASML - semiconductor lithography equipment
-        "peers": ["AMAT", "LRCX", "KLAC"],
+        "peers": ["AMAT", "LRCX", "KLAC", "ASM.AS"],
                    "dcf": {
                # Source: ASML Annual Report 2025; 2030 targets from Nov 2024 Investor Day
                "base_ebit_margin": 0.346,     # income from operations / sales
