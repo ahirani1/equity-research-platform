@@ -16,7 +16,7 @@ import pandas as pd
 
 import config
 from config import COMPANIES, MARKET, PORTFOLIO
-from src.comps import company_metrics, figures_table, implied_value, peer_table, warnings
+from src.comps import company_metrics, figures_table, implied_value, peer_table, one_off_warnings
 from src.data import fetch_company
 from src.dcf import _price_in_reporting_units, build_inputs, reverse_dcf, sensitivity, value, wacc
 from src.portfolio import (compare_allocations, correlation_table, covariance,
@@ -168,7 +168,7 @@ def show_comps(ticker: str, co: dict, cfg: dict, refresh: bool) -> None:
     for t, m in {ticker: target, **peers}.items():
         if m["Adjusted"]:
             print(f"  {t}: adjusted figures used for " + ", ".join(m["Adjusted"]))
-        for w in warnings(m):
+        for w in one_off_warnings(m):
             print(f"  Check {t}: {w}")
 
     price = _price_in_reporting_units(co["info"])

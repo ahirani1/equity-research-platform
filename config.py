@@ -94,9 +94,10 @@ COMPANIES = {
 PORTFOLIO = {
     "start": "2020-01-01",      # first date of price history used
     "benchmark": "VWRP.L",      # market proxy for beta
-    # Risk-free rate for the Sharpe ratio: the average over the period,
-    # not today's rate. Source: , date:
-    "risk_free": None,
+    # Risk-free rate for the Sharpe ratio: average Bank Rate over the period,
+    # weighted by time. Source: Bank of England, Official Bank Rate history,
+    # Jan 2020 - Oct 2026 (approx.)
+    "risk_free": 0.028,
     "weights": {
         "VWRP.L": 0.50,   # Vanguard FTSE All-World (accumulating)
         "IGLT.L": 0.20,   # iShares Core UK Gilts
@@ -105,13 +106,15 @@ PORTFOLIO = {
         "RR.L": 0.05,
         "ASML.AS": 0.05,
     },
+
     # Funds aren't valued with a DCF; fill these in from each fund's factsheet.
-    "funds": {
+        "funds": {
+        # Sources: fund factsheets / product pages, Sept-Oct 2026
         "VWRP.L": {"name": "Vanguard FTSE All-World", "role": "Core: global shares",
-                   "ocf": None},
+                   "ocf": 0.0014},
         "IGLT.L": {"name": "iShares Core UK Gilts", "role": "Core: stability and income",
-                   "ocf": None, "yield": None, "duration": None},
+                   "ocf": 0.0007, "yield": 0.0518, "duration": 6.97},
         "SGLN.L": {"name": "iShares Physical Gold", "role": "Core: diversifier",
-                   "ocf": None},
+                   "ocf": 0.0012},
     },
 }

@@ -110,7 +110,7 @@ def figures_table(target: str, target_metrics: dict, peers: dict) -> pd.DataFram
     return pd.DataFrame(rows).T
 
 
-def warnings(m: dict) -> list[str]:
+def one_off_warnings(m: dict) -> list[str]:
     """Signs that reported figures include one-off items."""
     out = []
     if m["EBIT"] > m["EBITDA"] > 0:

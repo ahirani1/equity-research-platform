@@ -20,7 +20,7 @@ import streamlit as st
 import config
 from config import COMPANIES, MARKET, PORTFOLIO
 from src.comps import (company_metrics, figures_table, implied_value, peer_table,
-                       warnings)
+                       one_off_warnings)
 from src.data import fetch_company
 from src.dcf import (_price_in_reporting_units, build_inputs, reverse_dcf,
                      sensitivity, value, wacc)
@@ -469,7 +469,7 @@ with tabs[3]:
             if mtr["Adjusted"]:
                 notes.append(f"{t}: adjusted figures from company results used for "
                              + ", ".join(mtr["Adjusted"]) + ".")
-            for w_ in warnings(mtr):
+            for w_ in one_off_warnings(mtr):
                 notes.append(f"Check {t}: {w_}.")
         for n in notes:
             st.caption(n)
